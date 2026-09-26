@@ -113,9 +113,9 @@ const dateGroupLabel = (
   date: Date | undefined,
   startOfToday: number,
 ): string => {
-  if (!date || date.getTime() >= startOfToday) return "Today";
-  if (date.getTime() >= startOfToday - DAY_IN_MS) return "Yesterday";
-  return "Earlier";
+  if (!date || date.getTime() >= startOfToday) return "Aujourd’hui";
+  if (date.getTime() >= startOfToday - DAY_IN_MS) return "Hier";
+  return "Plus ancien";
 };
 
 export type ThreadListGroup = { label: string; indices: number[] };

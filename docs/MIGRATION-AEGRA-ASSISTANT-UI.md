@@ -91,6 +91,10 @@ SQLite n'est pas possible : Aegra ne supporte que PostgreSQL (schéma `JSONB`, `
   le message d'erreur français de la configuration remonte bien).
 - `web/` : `npm run build` et `npm test` (tests du proxy) OK ; page en français ; fils créés
   et listés **à travers le proxy** vers Aegra.
+- Liste des conversations : le template ne la branche que sur Assistant Cloud (sinon liste
+  en mémoire, vide à chaque rechargement) ; `web/app/threadListAdapter.ts` la lit dans Aegra.
+  Vérifié dans Chrome : une conversation de démonstration (données fictives) se rouvre avec ses
+  appels d'outils dépliables et leurs résultats.
 
 **Reste à vérifier dans l'environnement sécurisé** (Oracle + vLLM) : conversation complète
 dans l'interface (chargement du dossier, appels d'outils affichés, citations), reprise d'un

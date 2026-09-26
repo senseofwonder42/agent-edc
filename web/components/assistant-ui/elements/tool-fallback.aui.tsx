@@ -169,7 +169,7 @@ function ToolFallbackTrigger({
           isRunning && "shimmer motion-reduce:animate-none",
         )}
       >
-        {label}: <b>{toolName}</b>
+        {label} : <b>{toolName}</b>
       </span>
       <ToolFallbackDuration />
       <ChevronDownIcon

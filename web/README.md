@@ -17,5 +17,6 @@ Ce contrôle n'est **pas** une authentification (voir la migration, « Suite pr�
 | Fichier | Rôle |
 |---|---|
 | `app/MyRuntimeProvider.tsx` | Connexion au serveur (threads, streaming) |
+| `app/threadListAdapter.ts` | Liste des conversations lue dans Aegra (titre = première question, archivage et renommage dans les métadonnées du fil). Sans lui, la liste serait vide à chaque rechargement |
 | `app/page.tsx` | Liste des conversations + fil, suggestions d'accueil |
 | `components/assistant-ui/elements/` | Composants générés par assistant-ui (textes traduits en français) ; `tool-fallback.aui.tsx` affiche les appels d'outils et leurs résultats |

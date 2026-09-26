@@ -60,9 +60,11 @@ npm install
 npm run dev                       # http://localhost:3000 (ou le premier port libre)
 ```
 
-Si l'image `pgvector/pgvector:pg18` ne peut pas être téléchargée, n'importe quel PostgreSQL
-récent convient (pgvector ne sert qu'à l'index vectoriel du store, non utilisé ici) :
-démarrer la base soi-même puis `uv run aegra dev --no-db-check`.
+La base est un `postgres:17` standard. Aegra recommande l'image `pgvector/pgvector`, mais
+pgvector ne sert qu'à l'index vectoriel du store, non utilisé ici (pas de bloc `store.index`
+dans `aegra.json`). Avec une base déjà démarrée ailleurs : `uv run aegra dev --no-db-check`.
+SQLite n'est pas possible : Aegra ne supporte que PostgreSQL (schéma `JSONB`, `asyncpg`,
+`AsyncPostgresSaver`) ; il reste utilisé par le REPL (`SqliteSaver`).
 
 ## 5. Points de vigilance
 

@@ -1,0 +1,61 @@
+# Réglages non sensibles de l'agent — versionné.
+# Les secrets et les adresses (EDC_DSN/USER/PASSWORD, chemins wallet, VLM_BASE_URL,
+# VLM_API_KEY, LANGFUSE_HOST et clés) restent dans .env : ils sont refusés ici.
+# Priorité : variable d'environnement > .env > ce fichier > valeurs par défaut.
+# Toute clé peut être surchargée ponctuellement, ex. VLM_REASONING_EFFORT=low.
+
+vlm:
+  # Nom exact tel que servi par vLLM (curl $VLM_BASE_URL/models).
+  model: Qwen/Qwen3.8-27B
+  # Raisonnement (chat_template_kwargs de Qwen3.8). Supprimer une ligne = défaut du modèle.
+  enable_thinking: true
+  # xhigh (défaut du modèle) | medium | low — toute autre valeur est refusée.
+  reasoning_effort: medium
+  # Échantillonnage officiel Qwen3.8 en mode raisonnement (fiche Hugging Face).
+  # Qwen déconseille les températures basses avec raisonnement (répétitions en boucle).
+  temperature: 1.0
+  # Réflexion + réponse : la réflexion consomme ce budget.
+  max_tokens: 16384
+  timeout: 300
+  # false = un seul appel d'outil par tour (évite le piège du § 4.5).
+  parallel_tool_calls: false
+  # native | json (repli § 8.4)
+  tool_protocol: native
+  # N'importe quel autre paramètre de requête vLLM, transmis tel quel.
+  extra_body:
+    top_p: 0.95
+    top_k: 20
+    min_p: 0.0
+  # Profil sans raisonnement (Qwen3.8) :
+  #   enable_thinking: false, temperature: 0.7, extra_body: {top_p: 0.8, top_k: 20}
+  #   (presence_penalty officiel 1.5 non repris : il peut altérer les citations littérales).
+  # preserve_thinking est sans objet : la réflexion n'est pas renvoyée dans l'historique.
+
+history:
+  # Résultats d'outils plus anciens que N tours : remplacés par un rappel (0 = jamais).
+  tool_results_keep_turns: 3
+  # Compactage : résume les anciens tours quand le contexte dépasse le seuil.
+  # L'historique complet reste dans l'état ; seul ce qui est envoyé au modèle est résumé.
+  compaction: false
+  compaction_trigger_tokens: 60000
+  compaction_keep_turns: 4
+
+langfuse:
+  # Instance INTERNE uniquement (§ 10.5).
+  enabled: false
+
+agent:
+  summary_events: 5
+  page_size: 20
+  max_page_size: 50
+  stale_after_minutes: 30
+  checkpoint_db: .checkpoints/agent_edc.sqlite
+
+edc:
+  # Pool de connexions Oracle (serveur longue durée).
+  pool_min: 0
+  pool_max: 4
+
+logging:
+  log_level: INFO
+  log_dir: logs

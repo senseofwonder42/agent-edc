@@ -1,0 +1,7 @@
+<vo nom="racine">
+  <string nom="motif">3</string>
+  <vo nom="suivi">
+    <string nom="blocNoteExtensible">mer la dévolution avant ordonnancement.</string>
+  </vo>
+  <string nom="commentaire">pièce classée au dossier le 03/09.</string>
+</vo>

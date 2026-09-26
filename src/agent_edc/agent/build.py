@@ -132,7 +132,7 @@ def build_agent(checkpointer: BaseCheckpointSaver | None = None) -> CompiledStat
 
     Args:
         checkpointer: Persistence for the REPL and tests; left to None under
-            ``langgraph dev``, whose server imposes its own (§ 11.2).
+            the server (Aegra or ``langgraph dev``), which imposes its own (§ 11.2).
 
     Returns:
         The compiled graph, with the Langfuse callbacks attached when tracing

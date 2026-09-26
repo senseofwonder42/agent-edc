@@ -32,6 +32,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "aegra-cli>=0.10.6",
     "langgraph-cli[inmem]>=0.4.31",
     "pytest>=9.1.1",
     "ruff>=0.16.8",

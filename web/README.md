@@ -18,5 +18,8 @@ Ce contrôle n'est **pas** une authentification (voir la migration, « Suite pr�
 |---|---|
 | `app/MyRuntimeProvider.tsx` | Connexion au serveur (threads, streaming) |
 | `app/threadListAdapter.ts` | Liste des conversations lue dans Aegra (titre = première question, archivage et renommage dans les métadonnées du fil). Sans lui, la liste serait vide à chaque rechargement |
-| `app/page.tsx` | Liste des conversations + fil, suggestions d'accueil |
+| `app/page.tsx` | Barre latérale (conversations) + bandeau du dossier + fil |
+| `app/DossierWelcome.tsx` | Accueil : saisie de l'identifiant à 8 chiffres, qui ouvre la conversation par un résumé |
+| `app/DossierBanner.tsx` | Dossier chargé dans le fil (`edc_id`, `loaded_at` de l'état) et âge des données, orange au-delà de 30 min ; bouton « Rafraîchir » |
+| `lib/toolLabels.ts` | Libellés français des outils de l'agent (à tenir à jour si un outil est ajouté) |
 | `components/assistant-ui/elements/` | Composants générés par assistant-ui (textes traduits en français) ; `tool-fallback.aui.tsx` affiche les appels d'outils et leurs résultats |

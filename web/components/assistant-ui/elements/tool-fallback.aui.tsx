@@ -25,6 +25,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { hasArgs, toolLabel } from "@/lib/toolLabels";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -129,11 +130,13 @@ function ToolFallbackDuration({
 
 function ToolFallbackTrigger({
   toolName,
+  argsText,
   status,
   className,
   ...props
 }: React.ComponentProps<typeof CollapsibleTrigger> & {
   toolName: string;
+  argsText?: string;
   status?: ToolCallMessagePartStatus;
 }) {
   const statusType = status?.type ?? "complete";
@@ -142,7 +145,6 @@ function ToolFallbackTrigger({
     status?.type === "incomplete" && status.reason === "cancelled";
 
   const Icon = statusIconMap[statusType];
-  const label = isCancelled ? "Outil annulé" : "Outil utilisé";
 
   return (
     <CollapsibleTrigger
@@ -163,13 +165,15 @@ function ToolFallbackTrigger({
       />
       <span
         data-slot="tool-fallback-trigger-label"
+        title={toolName}
         className={cn(
           "aui-tool-fallback-trigger-label-wrapper inline-block text-start leading-none",
           isCancelled && "text-muted-foreground line-through",
           isRunning && "shimmer motion-reduce:animate-none",
         )}
       >
-        {label} : <b>{toolName}</b>
+        {toolLabel(toolName, argsText)}
+        {isCancelled && " (annulé)"}
       </span>
       <ToolFallbackDuration />
       <ChevronDownIcon
@@ -227,7 +231,7 @@ function ToolFallbackArgs({
 }: React.ComponentProps<"div"> & {
   argsText?: string;
 }) {
-  if (!argsText) return null;
+  if (!hasArgs(argsText)) return null;
 
   return (
     <div
@@ -277,7 +281,7 @@ function ToolFallbackResult({
       <p className="aui-tool-fallback-result-header text-muted-foreground text-xs font-medium">
         Résultat :
       </p>
-      <pre className="aui-tool-fallback-result-content bg-muted/50 text-foreground/90 mt-1 rounded-md p-2.5 text-xs whitespace-pre-wrap">
+      <pre className="aui-tool-fallback-result-content bg-muted/50 text-foreground/90 mt-1 max-h-72 overflow-y-auto rounded-md p-2.5 text-xs whitespace-pre-wrap">
         {formatUnknownValue(result, 2)}
       </pre>
     </div>
@@ -730,7 +734,7 @@ const ToolFallbackImpl: ToolCallMessagePartComponent = ({
 
   return (
     <ToolFallbackRoot open={open} onOpenChange={setOpen}>
-      <ToolFallbackTrigger toolName={toolName} status={status} />
+      <ToolFallbackTrigger toolName={toolName} argsText={argsText} status={status} />
       <ToolFallbackContent>
         <ToolFallbackError status={status} />
         <ToolFallbackArgs

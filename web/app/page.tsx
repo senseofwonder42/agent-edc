@@ -2,40 +2,25 @@
 
 import { Thread } from "@/components/assistant-ui/elements/thread.aui";
 import { ThreadList } from "@/components/assistant-ui/elements/thread-list.aui";
-import { useAui, AuiProvider, AuiConfig, Suggestions } from "@assistant-ui/react";
-
-function ThreadWithSuggestions() {
-  const aui = useAui();
-  const config = AuiConfig({
-    suggestions: Suggestions([
-      {
-        title: "Résumé du dossier",
-        label: "état, montants et derniers événements",
-        prompt: "Dossier 01234567 : fais-moi un résumé.",
-      },
-      {
-        title: "Chronologie",
-        label: "délais et périodes sans événement",
-        prompt: "Dossier 01234567 : quels ont été les plus longs délais sans événement ?",
-      },
-    ]),
-  });
-  return (
-    <AuiProvider extends={aui} config={config}>
-      <Thread />
-    </AuiProvider>
-  );
-}
+import { DossierBanner } from "./DossierBanner";
+import { DossierWelcome } from "./DossierWelcome";
 
 export default function Home() {
   return (
     <div className="flex h-dvh">
-      <div className="max-w-md">
+      <aside className="flex w-72 shrink-0 flex-col gap-3 overflow-y-auto border-r p-3">
+        <div className="px-2 pt-1">
+          <p className="font-semibold">Agent E-décès</p>
+          <p className="text-muted-foreground text-xs">Consultation en lecture seule</p>
+        </div>
         <ThreadList />
-      </div>
-      <div className="flex-grow">
-        <ThreadWithSuggestions />
-      </div>
+      </aside>
+      <main className="flex min-w-0 flex-grow flex-col">
+        <DossierBanner />
+        <div className="min-h-0 flex-1">
+          <Thread components={{ Welcome: DossierWelcome }} />
+        </div>
+      </main>
     </div>
   );
 }

@@ -489,7 +489,7 @@ Deux garde-fous, complémentaires :
 Un fil long finit par dépasser le contexte du modèle : chaque bloc-note ou
 détail d'événement lu reste dans l'historique. Deux mécanismes, réglés dans la
 section `history` de `config.yaml`, agissent **uniquement sur la vue envoyée
-au modèle** (`agent/history.py`) — `messages` reste complet, donc Agent Chat UI
+au modèle** (`agent/history.py`) — `messages` reste complet, donc l'interface web
 et la reprise d'un fil montrent toute la conversation.
 
 1. **Rappels à la place des vieux résultats d'outils** (toujours actif,
@@ -1889,7 +1889,7 @@ d'un nœud, reste sans effet. `observability.py` sous-classe donc le handler
 (`EdcCallbackHandler`) :
 
 - au démarrage du run racine, `metadata["thread_id"]` — que LangGraph recopie
-  depuis `configurable`, sous `langgraph dev` comme dans le REPL — devient
+  depuis `configurable`, sous le serveur comme dans le REPL — devient
   `langfuse_session_id`, et les tags de configuration sont ajoutés ;
 - à la fin du run racine, l'état final contient `edc_id` : le tag
   `dossier:…` est posé sur le span racine (API interne du SDK, protégée par
@@ -2000,26 +2000,35 @@ bloc-note, aucun nom n'est journalisé, même en `DEBUG`.
 
 ## 11 — Service et persistance
 
-### 11.1 `langgraph.json`
+### 11.1 Le serveur : Aegra (`aegra.json`)
+
+Le graphe est servi par [Aegra](https://github.com/aegra/aegra) (Apache 2.0),
+serveur auto-hébergé qui expose la même API que l'Agent Server de LangGraph
+(Agent Protocol). La librairie `langgraph` ne change pas : Aegra importe l'objet
+`graph` et l'exécute. Motifs et détail de la migration :
+[MIGRATION-AEGRA-ASSISTANT-UI.md](MIGRATION-AEGRA-ASSISTANT-UI.md).
 
 ```json
 {
   "dependencies": ["."],
   "graphs": {
     "agent_edc": "./src/agent_edc/agent/build.py:graph"
-  },
-  "env": ".env",
-  "python_version": "3.11"
+  }
 }
 ```
 
 ```bash
-uv run langgraph dev          # http://127.0.0.1:2024 + LangGraph Studio
+uv run aegra dev              # http://127.0.0.1:2026 ; démarre PostgreSQL (docker-compose.yml)
 ```
 
-`langgraph dev` recharge à chaud : modifier un outil ou le prompt ne demande pas
-de redémarrage. `langgraph-cli[inmem]` est une dépendance **de développement**
-uniquement.
+- `aegra-cli` est une dépendance de développement ; en production :
+  `uv run aegra serve` avec `DATABASE_URL` (ou `POSTGRES_*`) vers une base gérée.
+- Aegra exige **Python ≥ 3.12**.
+- L'API tourne **sur l'hôte**, pas dans un conteneur : elle a besoin du client
+  Oracle (mode *thick*, § 5.3). `docker-compose.yml` ne contient que PostgreSQL
+  (port local 5433, pour ne pas heurter un autre Postgres, ex. Langfuse).
+- `langgraph.json` et `langgraph dev` (http://127.0.0.1:2024 + Studio) restent
+  utilisables en développement ; mêmes graphe et identifiant `agent_edc`.
 
 ### 11.2 Persistance : deux chemins, et il faut le savoir
 
@@ -2027,14 +2036,15 @@ C'est le point où l'on perd une demi-journée si on ne l'a pas lu.
 
 | Exécution | Qui fournit la persistance | Les fils survivent-ils à un redémarrage ? |
 |---|---|---|
-| `langgraph dev` (serveur) | **le serveur**, dans `.langgraph_api/` | **Oui** — le serveur persiste localement entre deux lancements |
+| Aegra (serveur) | **le serveur**, dans PostgreSQL (`AsyncPostgresSaver`) | **Oui** |
+| `langgraph dev` (développement) | **le serveur**, dans `.langgraph_api/` | **Oui** — persistance locale entre deux lancements |
 | REPL Typer / tests (§ 11.4) | **nous**, via `SqliteSaver` | **Oui** — fichier SQLite |
 
 > **Le point à retenir :** un `checkpointer` passé à `compile()` est **ignoré**
-> quand le graphe tourne sous le serveur LangGraph, qui impose le sien. D'où la
-> forme de `build_agent(checkpointer=None)` (§ 4.1) : l'objet `graph` exporté
-> vers `langgraph.json` est compilé **sans** checkpointer, et seul le REPL en
-> fournit un.
+> quand le graphe tourne sous un serveur (Aegra ou `langgraph dev`), qui impose
+> le sien. D'où la forme de `build_agent(checkpointer=None)` (§ 4.1) : l'objet
+> `graph` exporté vers `aegra.json` est compilé **sans** checkpointer, et seul le
+> REPL en fournit un.
 
 ```python
 # cli.py
@@ -2046,37 +2056,51 @@ with SqliteSaver.from_conn_string(settings.agent.checkpoint_db) as checkpointer:
     )
 ```
 
-Dans les deux cas, ce qui est persisté est **l'état complet**, donc
+Dans tous les cas, ce qui est persisté est **l'état complet**, donc
 `messages` **et** `snapshot` : rouvrir une conversation de la veille retrouve le
 dossier en mémoire sans requête Oracle (§ 5.6). L'âge affiché sera en revanche
 de plusieurs heures, ce qui déclenchera la mention de fraîcheur du § 5.5 — le
 comportement voulu.
 
-`SqliteSaver` sérialise les modèles pydantic sans configuration particulière.
+Sérialisation de l'instantané : le REPL restreint msgpack aux classes du projet
+(`cli._SERDE`) ; Aegra utilise le sérialiseur **par défaut** de LangGraph, qui
+relit aussi `CaseFile` (vérifié par `tests/test_persistence.py`). Ne **pas**
+activer `LANGGRAPH_STRICT_MSGPACK=true` côté serveur sans y déclarer ces classes :
+l'instantané ne se relirait plus.
+
 Un point à vérifier au premier essai : la reprise d'un fil ancien après une
 **modification du modèle** `CaseFile` (champ ajouté). Mitigation simple et
 suffisante : tout champ ajouté aux modèles porte une valeur par défaut, de sorte
 qu'un ancien instantané se relise toujours.
 
-### 11.3 Agent Chat UI
+### 11.3 L'interface : assistant-ui (`web/`)
 
-L'interface est [Agent Chat UI](https://github.com/langchain-ai/agent-chat-ui),
-lancée à côté du serveur. Rien à écrire : elle parle le protocole LangGraph.
+L'interface est une application Next.js générée depuis l'exemple LangGraph
+d'[assistant-ui](https://www.assistant-ui.com/) (runtime
+`@assistant-ui/react-langchain`), textes traduits en français. Voir
+[web/README.md](../web/README.md).
 
-| Variable (côté interface) | Valeur locale | Rôle |
+```bash
+cd web && cp .env.example .env.local && npm install && npm run dev
+```
+
+| Variable (`web/.env.local`) | Valeur locale | Rôle |
 |---|---|---|
-| `NEXT_PUBLIC_API_URL` | `http://localhost:2024` | l'adresse du serveur `langgraph dev` |
-| `NEXT_PUBLIC_ASSISTANT_ID` | `agent_edc` | la clé déclarée dans `langgraph.json` |
-| `LANGGRAPH_API_URL` | *(mode proxy uniquement)* | lorsqu'on passe par la route serveur de l'interface |
-| `LANGSMITH_API_KEY` | *(mode proxy uniquement)* | non utilisé ici — on ne trace pas vers LangSmith |
+| `LANGGRAPH_API_URL` | `http://localhost:2026` | l'adresse d'Aegra, appelée **côté serveur** par le proxy `/api/[..._path]` |
+| `NEXT_PUBLIC_LANGGRAPH_ASSISTANT_ID` | `agent_edc` | la clé déclarée dans `aegra.json` |
+| `LANGCHAIN_API_KEY` | *(vide)* | transmis en `x-api-key` ; inutile tant qu'Aegra tourne avec `AUTH_TYPE=noop` |
+| `NEXT_PUBLIC_LANGGRAPH_API_URL` | *(vide)* | contournerait le proxy — à laisser vide |
 
-En local, les deux premières suffisent. L'interface gère le `thread_id` : c'est
-lui qui devient la session Langfuse (§ 10.3) et la clé du checkpoint.
+Le navigateur ne parle qu'à Next, jamais directement à Aegra : pas de CORS à
+ouvrir. Le proxy refuse les requêtes d'une autre origine, mais **ce n'est pas une
+authentification** (à ajouter avant tout déploiement partagé). L'interface gère
+le `thread_id` : c'est lui qui devient la session Langfuse (§ 10.3) et la clé du
+checkpoint ; la liste de gauche est celle des fils stockés par Aegra.
 
 Ce que l'interface apporte gratuitement : l'affichage des appels d'outils et de
-leurs résultats. Voir en clair que l'agent a appelé `bloc_note_dossier` puis
-`detail_evenement("EVT-9912")` est **le principal outil de confiance** pour un
-gestionnaire — il vérifie la citation d'un coup d'œil.
+leurs résultats (`tool-fallback.aui.tsx`). Voir en clair que l'agent a appelé
+`bloc_note_dossier` puis `detail_evenement("EVT-9912")` est **le principal outil
+de confiance** pour un gestionnaire — il vérifie la citation d'un coup d'œil.
 
 ### 11.4 Le REPL Typer
 
@@ -2329,7 +2353,7 @@ Les deux partagent le même package, les mêmes outils et les mêmes tests.
 | # | Risque | Gravité | Mitigation |
 |---|---|---|---|
 | 1 | **Le *tool calling* de vLLM n'est pas fiable** : `tool_calls` vides, arguments mal formés, boucle sur le même outil. | **Bloquant** | (a) Vérifier **avant de coder** (§ 8.3) ; (b) le plus souvent c'est le serveur, pas le modèle : `--enable-auto-tool-choice` + le bon `--tool-call-parser` ; (c) si cela persiste, basculer `vlm.tool_protocol: json` (§ 8.4) — le repli est conçu pour ne rien changer au graphe ; (d) si aucune des deux voies ne tient, le projet doit s'arrêter et changer de modèle : ce n'est pas contournable par du prompt. |
-| 2 | **Oracle en mode *thick*** : wallet, `TNS_ADMIN`, `ORACLE_HOME`, client Instant Client absent du serveur qui héberge `langgraph dev`. | **Bloquant** | (a) `uv run agent-edc check` teste la connexion **seule**, avant tout le reste ; (b) `ensure_thick_mode()` protège contre le double appel dans un processus long (§ 5.3) ; (c) l'échec doit produire un message français explicite, jamais une trace Python dans l'interface ; (d) documenter dans le README que le serveur doit tourner **sur une machine ayant le client Oracle** — c'est une contrainte de déploiement, pas de code. |
+| 2 | **Oracle en mode *thick*** : wallet, `TNS_ADMIN`, `ORACLE_HOME`, client Instant Client absent de la machine qui héberge le serveur (Aegra). | **Bloquant** | (a) `uv run agent-edc check` teste la connexion **seule**, avant tout le reste ; (b) `ensure_thick_mode()` protège contre le double appel dans un processus long (§ 5.3) ; (c) l'échec doit produire un message français explicite, jamais une trace Python dans l'interface ; (d) documenter dans le README que le serveur doit tourner **sur une machine ayant le client Oracle** — c'est une contrainte de déploiement, pas de code. |
 | 3 | **Instantané obsolète** : l'agent affirme un fait périmé. | Moyenne | (a) Âge affiché au-delà de 30 min (§ 5.5) ; (b) règle explicite dans le prompt (§ 9.4) ; (c) `rafraichir_dossier` annonce le **delta** ; (d) `snapshot_age_s` en métadonnée de trace permet l'audit a posteriori. |
 | 4 | **Très gros dossier** (>1 000 événements) : saturation du contexte, latence. | Moyenne | (a) Aucun outil ne renvoie tout : pagination bornée à 50, résumé à 5 événements ; (b) `statistiques_chronologie` donne la forme du dossier pour ~80 tokens ; (c) au-delà de 1 000 événements, le résumé ajoute : « dossier volumineux — privilégie `chercher_evenements` et les filtres de date » ; (d) `result_chars` en trace pour détecter les sorties qui gonflent ; (e) si un dossier dépasse la mémoire raisonnable (>5 000 événements), `charger_dossier` le signale et propose de charger une fenêtre de dates — **à implémenter seulement si le cas se présente**. |
 | 5 | **Dérive des nomenclatures** face à `files_late_fee`. | Faible | Test de parité `-m parity` + en-têtes de provenance + table des divergences assumées (§ 2.4). Un code inconnu se voit de toute façon (« sous-événement inconnu ») et le prompt interdit de l'interpréter (§ 9.5). |
@@ -2345,7 +2369,7 @@ Les deux partagent le même package, les mêmes outils et les mêmes tests.
 |---|---|---|
 | Quels **seuils** font qu'un dossier est « mal géré » (30 j sans relance ? 60 j ? 90 j ?) | C'est une décision métier, pas technique. La v1 décrit sans noter (§ 9.2). | Avant la phase 2 — c'est le contenu du jeu de règles (§ 13.4). |
 | Faut-il **exclure** certains sous-types d'événements comme le faisaient les scripts Eckert (`IGNORE_SS_EVT`) ? | Le filtrage historique servait un autre objectif ; filtrer ici pourrait masquer une preuve. La v1 **ne filtre rien**. | Après les premiers retours de gestionnaires. |
-| Le regroupement **session Langfuse** fonctionne-t-il via `RunnableConfig` sous `langgraph dev` ? | Dépend de la version de l'hôte. | À la première trace réelle (§ 10.3). |
+| Le regroupement **session Langfuse** fonctionne-t-il via `RunnableConfig` sous Aegra ? | Dépend de la version de l'hôte. | À la première trace réelle (§ 10.3). |
 | Quelle **rétention** pour les checkpoints SQLite (données personnelles au repos) ? | Question de gouvernance, pas d'architecture. | Avant toute mise à disposition au-delà du poste de développement. |
 | Faut-il remonter le correctif bloc-note vers `files_late_fee` ? | Ce dépôt est hors périmètre de cette mission. | À proposer en ticket séparé — le pipeline y perd aussi du texte aujourd'hui. |
 

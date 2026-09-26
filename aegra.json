@@ -2,7 +2,5 @@
   "dependencies": ["."],
   "graphs": {
     "agent_edc": "./src/agent_edc/agent/build.py:graph"
-  },
-  "env": ".env",
-  "python_version": "3.12"
+  }
 }

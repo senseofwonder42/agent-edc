@@ -1,7 +1,7 @@
 """What of the conversation history is sent to the model.
 
 Pure functions over a message list. The thread state is never cut: these
-functions only build the *view* passed to the model, so Agent Chat UI and a
+functions only build the *view* passed to the model, so the web UI and a
 resumed thread still show the whole conversation. Every cut falls on a
 ``HumanMessage``, so a tool call is never separated from its ``ToolMessage``.
 """

@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "afleuren", email = "antoine.j.fleurentin@gmail.com" }
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "langchain>=1.4.1",
     "langchain-openai>=1.6.2",
@@ -32,6 +32,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "aegra-cli>=0.10.6",
     "langgraph-cli[inmem]>=0.4.31",
     "pytest>=9.1.1",
     "ruff>=0.16.8",
@@ -47,10 +48,12 @@ markers = [
 
 [tool.ruff]
 line-length = 110
-target-version = "py311"
+target-version = "py312"
 src = ["src", "tests"]
 # Ported verbatim: kept byte-comparable with files_late_fee (§ 2.4).
 extend-exclude = ["src/agent_edc/edc/nomenclatures.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B"]
+# PEP 695 generics (py312): not applied to the pydantic generic Page in snapshot.py.
+ignore = ["UP046", "UP047"]

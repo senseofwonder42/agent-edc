@@ -14,15 +14,18 @@ cp .env.example .env                    # secrets : EDC_*, VLM_BASE_URL, clés L
 $EDITOR config.yaml                     # modèle, raisonnement, génération, réglages agent
 uv run agent-edc check                  # Oracle + vLLM + appel d'outils — à faire en premier
 uv run agent-edc chat 01234567          # REPL terminal
-uv run langgraph dev                    # serveur + Studio sur http://127.0.0.1:2024
+uv run aegra dev                        # serveur Aegra + PostgreSQL sur http://127.0.0.1:2026
+cd web && cp .env.example .env.local && npm install && npm run dev   # interface web
 ```
 
-Interface web : [Agent Chat UI](https://github.com/langchain-ai/agent-chat-ui) avec
-`NEXT_PUBLIC_API_URL=http://localhost:2024` et `NEXT_PUBLIC_ASSISTANT_ID=agent_edc`.
+Serveur [Aegra](https://github.com/aegra/aegra) (Docker requis pour PostgreSQL en local),
+interface [assistant-ui](https://www.assistant-ui.com/) dans [web/](web/).
+Pourquoi ce choix et ce qui a changé : [docs/MIGRATION-AEGRA-ASSISTANT-UI.md](docs/MIGRATION-AEGRA-ASSISTANT-UI.md).
+`uv run langgraph dev` (Studio, port 2024) reste disponible en développement.
 
 ## Contraintes de déploiement
 
-- Le serveur doit tourner sur une machine disposant du **client Oracle** (mode *thick*,
+- Le serveur (Aegra, **Python ≥ 3.12**) doit tourner sur une machine disposant du **client Oracle** (mode *thick*,
   wallet via `EDC_TNS_ADMIN` / `EDC_ORACLE_HOME`).
 - Serveur vLLM pour Qwen3.8-27B (`--reasoning-parser` indispensable, sinon la réflexion
   arrive dans la réponse) ; si l'appel d'outils reste peu fiable : `tool_protocol: json` (§ 8.4).
